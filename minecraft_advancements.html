@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Java 1.21.11 – Advancement Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+:root{--bg:#111318;--panel:#181c24;--card:#1e2433;--card-hover:#252d40;--border:#2a3350;--border-done:#1a2230;--gold:#f5c542;--grass:#5da83d;--nether:#d44e2a;--end:#9b72cf;--diamond:#4fc3c8;--emerald:#3dba6e;--text:#dce3f0;--muted:#7a8aaa;--challenge-red:#e05050;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'VT323',monospace;background:var(--bg);color:var(--text);font-size:18px;min-height:100vh;}
+header{background:linear-gradient(135deg,#0d1117,#1a2433);border-bottom:3px solid var(--grass);padding:28px 20px 18px;text-align:center;}
+header h1{font-family:'Press Start 2P',monospace;font-size:clamp(.65rem,2.5vw,1rem);color:var(--gold);text-shadow:2px 2px 0 #000;line-height:1.8;letter-spacing:1px;}
+header p{color:var(--muted);font-size:1.1rem;margin-top:6px;}
+.progress-wrap{background:var(--panel);border-bottom:2px solid var(--border);padding:10px 20px 12px;}
+.progress-track{height:14px;background:#0d1020;border:2px solid #2a3350;border-radius:2px;overflow:hidden;max-width:900px;margin:0 auto 4px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--grass),var(--diamond));transition:width .35s ease;}
+.progress-label{text-align:center;color:var(--muted);font-size:1.05rem;}
+.controls{position:sticky;top:0;z-index:200;background:var(--panel);border-bottom:2px solid var(--border);padding:8px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;}
+.search-box{font-family:'VT323',monospace;font-size:1.1rem;padding:5px 12px;background:var(--card);border:2px solid var(--border);color:var(--text);border-radius:2px;width:200px;outline:none;}
+.search-box:focus{border-color:var(--diamond);}
+.search-box::placeholder{color:#444;}
+.filter-btn{font-family:'VT323',monospace;font-size:1rem;padding:4px 12px;background:var(--card);border:2px solid var(--border);color:var(--muted);cursor:pointer;border-radius:2px;transition:all .12s;white-space:nowrap;}
+.filter-btn:hover{color:var(--text);border-color:#555;}
+.filter-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(245,197,66,.08);}
+main{max-width:1120px;margin:0 auto;padding:20px 14px 80px;}
+.tab-section{margin-bottom:36px;}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:7px;border-bottom:3px solid currentColor;}
+.section-header h2{font-family:'Press Start 2P',monospace;font-size:clamp(.45rem,1.5vw,.65rem);letter-spacing:1px;}
+.section-count{font-size:1rem;color:var(--muted);margin-left:auto;}
+.tab-minecraft .section-header{color:var(--grass);}
+.tab-nether .section-header{color:var(--nether);}
+.tab-end .section-header{color:var(--end);}
+.tab-adventure .section-header{color:var(--diamond);}
+.tab-husbandry .section-header{color:var(--emerald);}
+.adv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:9px;}
+.adv-card{background:var(--card);border:2px solid var(--border);border-radius:3px;padding:11px 13px 10px;display:flex;flex-direction:column;gap:5px;transition:border-color .12s,background .12s;position:relative;cursor:default;}
+.adv-card:hover{border-color:#3d4f70;background:var(--card-hover);}
+.adv-card.done{border-color:var(--border-done);background:#151a26;}
+.adv-card.done .adv-name,.adv-card.done .adv-how,.adv-card.done .adv-difficulty,.adv-card.done .type-badge{opacity:.25;}
+.adv-main-cb-wrap{display:flex;align-items:center;gap:10px;margin-top:7px;cursor:pointer;user-select:none;}
+.adv-main-cb{appearance:none;-webkit-appearance:none;width:20px;height:20px;border:2px solid #3a5070;border-radius:3px;background:#0d1020;cursor:pointer;flex-shrink:0;position:relative;transition:border-color .15s,background .15s;}
+.adv-main-cb:hover{border-color:var(--emerald);}
+.adv-main-cb:checked{background:var(--emerald);border-color:var(--emerald);}
+.adv-main-cb:checked::after{content:"✔";position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);color:#0d1020;font-size:12px;font-family:monospace;font-weight:bold;}
+.adv-main-cb-label{font-family:'VT323',monospace;font-size:1.05rem;color:var(--muted);transition:color .12s;}
+.adv-main-cb-wrap:hover .adv-main-cb-label{color:var(--text);}
+.adv-card.done .adv-main-cb-label{color:var(--emerald);}
+.type-badge{display:inline-block;font-family:'Press Start 2P',monospace;font-size:.38rem;padding:2px 6px;border-radius:2px;width:fit-content;letter-spacing:.5px;margin-bottom:1px;}
+.type-normal{background:rgba(93,168,61,.15);color:#7ec85a;border:1px solid #3d7a2a;}
+.type-goal{background:rgba(168,122,232,.15);color:#c0a0f0;border:1px solid #7050b0;}
+.type-challenge{background:rgba(224,80,80,.15);color:#f08080;border:1px solid #a03030;}
+.adv-name{font-family:'Press Start 2P',monospace;font-size:clamp(.42rem,1.2vw,.55rem);color:#e8eeff;line-height:1.6;padding-right:22px;}
+.adv-difficulty{font-size:1rem;letter-spacing:1px;margin-top:1px;}
+.d1{color:#5da83d;}.d2{color:#8fc44a;}.d3{color:var(--gold);}.d4{color:#e07830;}.d5{color:var(--challenge-red);}
+.adv-how{font-size:1rem;color:#b0bedc;line-height:1.3;margin-top:1px;}
+.sub-checklist{margin-top:6px;background:rgba(0,0,0,.25);border:1px solid #2a3350;border-radius:2px;padding:7px 9px;display:none;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;}
+.sub-checklist.open{display:flex;}
+.sub-checklist::-webkit-scrollbar{width:5px;}
+.sub-checklist::-webkit-scrollbar-thumb{background:#2a3a5a;border-radius:2px;}
+.sub-item{display:flex;align-items:flex-start;gap:8px;font-size:.95rem;color:#a0b0d0;cursor:pointer;padding:2px 0;transition:color .1s;line-height:1.3;}
+.sub-item:hover{color:var(--text);}
+.sub-item input[type=checkbox]{accent-color:var(--emerald);width:13px;height:13px;cursor:pointer;flex-shrink:0;margin-top:2px;}
+.sub-item.checked{color:#3a5045;text-decoration:line-through;}
+.sub-progress{font-size:.85rem;color:var(--muted);text-align:right;margin-top:3px;border-top:1px solid #2a3350;padding-top:3px;}
+.card-footer{display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;}
+.btn-small{font-family:'VT323',monospace;font-size:.95rem;padding:2px 9px;background:transparent;border:1px solid #2a3a5a;color:#5a6a90;cursor:pointer;border-radius:2px;transition:all .12s;}
+.btn-small:hover{border-color:var(--diamond);color:var(--diamond);}
+.hidden{display:none!important;}
+.no-results{text-align:center;padding:50px;color:#333;font-size:1.5rem;}
+
+/* Date stamp */
+.done-stamp{font-size:.85rem;color:#3a6040;margin-top:2px;min-height:1rem;font-family:'VT323',monospace;letter-spacing:.5px;}
+.adv-card.done .done-stamp{color:#4a8055;}
+
+/* Advancement icon */
+.adv-icon{font-size:1.6rem;line-height:1;flex-shrink:0;}
+
+/* Card top row */
+.card-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:2px;}
+.card-top-text{flex:1;min-width:0;}
+
+/* Random picker button */
+#randBtn{font-family:'Press Start 2P',monospace;font-size:.5rem;padding:5px 12px;background:var(--card);border:2px solid var(--end);color:var(--end);cursor:pointer;border-radius:2px;transition:all .15s;letter-spacing:.5px;}
+#randBtn:hover{background:rgba(155,114,207,.15);border-color:#c0a0f0;color:#c0a0f0;}
+#randBtn.spinning{animation:btnPulse .15s ease infinite alternate;}
+@keyframes btnPulse{from{border-color:var(--end);}to{border-color:var(--gold);color:var(--gold);}}
+
+/* Highlight for random pick */
+.adv-card.rand-highlight{border-color:var(--gold)!important;background:#1e2820!important;box-shadow:0 0 0 2px rgba(245,197,66,.3),0 0 20px rgba(245,197,66,.15);}
+.adv-card.rand-highlight .adv-name{color:var(--gold)!important;}
+
+/* 100% celebration overlay */
+#celebrate{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.92);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;}
+#celebrate.show{display:flex;}
+#celebrate h2{font-family:'Press Start 2P',monospace;font-size:clamp(.9rem,3vw,1.6rem);color:var(--gold);text-shadow:0 0 20px rgba(245,197,66,.6);line-height:1.7;margin-bottom:20px;}
+#celebrate p{font-family:'VT323',monospace;font-size:1.6rem;color:#aaa;margin-bottom:30px;}
+#celebrate-close{font-family:'Press Start 2P',monospace;font-size:.5rem;padding:10px 20px;background:transparent;border:2px solid var(--emerald);color:var(--emerald);cursor:pointer;border-radius:2px;transition:all .15s;}
+#celebrate-close:hover{background:rgba(61,186,110,.15);}
+.celebrate-stars{font-size:2.5rem;letter-spacing:8px;margin-bottom:16px;animation:starSpin 3s ease-in-out infinite;}
+@keyframes starSpin{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>⛏ MINECRAFT JAVA 1.21.11<br>ADVANCEMENT TRACKER</h1>
+  <p>127 advancements · easiest → hardest · saves between refreshes</p>
+</header>
+<div class="progress-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+  <div class="progress-label" id="progLabel">0 / 127 completed (0%)</div>
+</div>
+<div class="controls">
+  <input class="search-box" id="searchBox" type="text" placeholder="Search...">
+  <button class="filter-btn active" onclick="setFilter('all',this)">ALL</button>
+  <button class="filter-btn" onclick="setFilter('minecraft',this)">🌱 MINECRAFT</button>
+  <button class="filter-btn" onclick="setFilter('nether',this)">🔥 NETHER</button>
+  <button class="filter-btn" onclick="setFilter('end',this)">🌌 THE END</button>
+  <button class="filter-btn" onclick="setFilter('adventure',this)">⚔ ADVENTURE</button>
+  <button class="filter-btn" onclick="setFilter('husbandry',this)">🌾 HUSBANDRY</button>
+  <button class="filter-btn" onclick="setFilter('challenge',this)">💀 CHALLENGES</button>
+  <button class="filter-btn" onclick="setFilter('incomplete',this)">📋 INCOMPLETE</button>
+  <button id="randBtn" onclick="pickRandom()">🎲 RANDOM</button>
+</div>
+<main id="mainContent"></main>
+<script>
+const ADV=[
+{tab:'minecraft',name:'Minecraft',type:'normal',diff:1,how:'Open your inventory — triggers automatically as the game gives you a crafting table recipe.'},
+{tab:'minecraft',name:'Stone Age',type:'normal',diff:1,how:'Mine any stone and pick up cobblestone, blackstone, or cobbled deepslate.'},
+{tab:'minecraft',name:'Getting an Upgrade',type:'normal',diff:1,how:'Craft a stone pickaxe (3 cobblestone + 2 sticks) and have it in your inventory.'},
+{tab:'minecraft',name:'Acquire Hardware',type:'normal',diff:1,how:'Get an iron ingot — smelt iron ore in a furnace, or find one in a chest.'},
+{tab:'minecraft',name:'Suit Up',type:'normal',diff:1,how:'Craft any single piece of iron armor and put it in your inventory.'},
+{tab:'minecraft',name:'Hot Stuff',type:'normal',diff:1,how:'Fill an iron bucket with lava and pick it up.'},
+{tab:'minecraft',name:"Isn't It Iron Pick",type:'normal',diff:1,how:'Craft an iron pickaxe (3 iron ingots + 2 sticks) and hold it.'},
+{tab:'minecraft',name:'Not Today, Thank You',type:'normal',diff:2,how:'Block any incoming projectile (arrow, fireball, snowball) with a shield held in your offhand.'},
+{tab:'minecraft',name:'Ice Bucket Challenge',type:'normal',diff:2,how:'Get a block of obsidian. Pour water on a lava source, then mine the obsidian with a DIAMOND pickaxe (iron and below will not drop it).'},
+{tab:'minecraft',name:'Diamonds!',type:'normal',diff:2,how:'Mine a diamond. Best found at Y=-58 in the deepslate layer. Iron pickaxe or better required.'},
+{tab:'minecraft',name:'We Need to Go Deeper',type:'normal',diff:2,how:'Build a Nether portal (obsidian frame), light it with flint & steel, and step through.'},
+{tab:'minecraft',name:'Cover Me with Diamonds',type:'normal',diff:2,how:'Craft any one piece of diamond armor and have it in your inventory.'},
+{tab:'minecraft',name:'Enchanter',type:'normal',diff:2,how:'Craft an enchanting table (1 book + 2 diamonds + 4 obsidian), place any item in it, and apply an enchantment.'},
+{tab:'minecraft',name:'Zombie Doctor',type:'goal',diff:3,how:'Cure a zombie villager: throw a Splash Potion of Weakness at it, then feed it a golden apple. It shakes and converts back to a villager after a few minutes.',subs:['Brew Potion of Weakness (water bottle + fermented spider eye)','Add gunpowder to make it a Splash Potion','Find a zombie villager (spawns naturally or from a villager killed by zombie)','Throw splash potion at the zombie villager','Feed it a golden apple (right-click)','Wait ~2 minutes for conversion']},
+{tab:'minecraft',name:'Eye Spy',type:'normal',diff:3,how:"Enter a stronghold. Craft Eyes of Ender (ender pearl + blaze powder) and throw them — they fly toward the nearest stronghold underground."},
+{tab:'minecraft',name:'The End?',type:'normal',diff:3,how:'Enter the End. Find the End Portal room inside a stronghold, fill all 12 frames with Eyes of Ender, and jump through.'},
+{tab:'nether',name:'Nether',type:'normal',diff:2,how:'Step through a Nether portal for the first time.'},
+{tab:'nether',name:'Those Were the Days',type:'normal',diff:2,how:'Walk into a Bastion Remnant — the large dark stone structures that appear in all Nether biomes except Basalt Deltas.'},
+{tab:'nether',name:'A Terrible Fortress',type:'normal',diff:2,how:'Enter a Nether Fortress — the long dark-brick bridge structures found in Nether Wastes and Crimson Forest biomes.'},
+{tab:'nether',name:'Who is Cutting Onions?',type:'normal',diff:2,how:'Pick up crying obsidian. Found in ruined portals and bastions, or barter with piglins using gold ingots.'},
+{tab:'nether',name:'Oh Shiny',type:'normal',diff:2,how:"Distract an angry piglin by dropping (Q key) any gold item near them — gold ingot, gold armor, etc. They\'ll stop attacking to inspect it."},
+{tab:'nether',name:'This Boat Has Legs',type:'normal',diff:2,how:'Saddle a strider (find in Nether lava lakes) and ride it while using a Warped Fungus on a Stick to boost it.'},
+{tab:'nether',name:'War Pigs',type:'normal',diff:2,how:'Open any naturally generated chest inside a Bastion Remnant.'},
+{tab:'nether',name:'Into Fire',type:'normal',diff:2,how:"Kill a blaze in a Nether Fortress and pick up the blaze rod it drops."},
+{tab:'nether',name:'Local Brewery',type:'normal',diff:2,how:"Craft a brewing stand (blaze rod + 3 cobblestone), fill glass bottles with water, add nether wart, and take the result out of the output slot."},
+{tab:'nether',name:'Hidden in the Depths',type:'normal',diff:3,how:'Mine ancient debris in the Nether (best at Y=8-22) using a diamond pickaxe. Iron pickaxes will NOT mine it. It looks like grey-brown ore and is explosion-resistant.'},
+{tab:'nether',name:'Not Quite &quot;Nine&quot; Lives',type:'normal',diff:3,how:'Fully charge a respawn anchor. Craft one (6 crying obsidian + 3 glowstone), place it, and right-click it 4 times with glowstone blocks.'},
+{tab:'nether',name:'Country Lode, Take Me Home',type:'normal',diff:3,how:'Craft a lodestone (1 netherite ingot + 8 chiseled stone bricks), place it, and right-click it with a compass.'},
+{tab:'nether',name:'Spooky Scary Skeleton',type:'normal',diff:3,how:'Get a wither skeleton skull from killing wither skeletons in a Nether Fortress. Drop rate is ~2.5% — use a Looting III sword to improve odds.'},
+{tab:'nether',name:'Withering Heights',type:'normal',diff:3,how:'Be nearby when you summon the Wither. Place 4 soul sand in a T-shape and put 3 wither skeleton skulls on top. Fight it with strong armor.'},
+{tab:'nether',name:'Bring Home the Beacon',type:'normal',diff:3,how:'Activate a beacon. Kill the Wither for a Nether Star, craft the beacon (5 glass + 3 obsidian + 1 star), build a pyramid of iron/gold/diamond/emerald blocks, and place it on top.',subs:['Collect 3 wither skeleton skulls','Summon and kill the Wither','Craft the beacon','Gather 9+ iron/gold/diamond/emerald blocks for the pyramid','Build the pyramid (1-layer minimum: 3x3 = 9 blocks)','Place beacon on top and activate']},
+{tab:'nether',name:'Beaconator',type:'goal',diff:4,how:'Power a full 4-layer beacon pyramid requiring 164 iron/gold/diamond/emerald/netherite blocks total.',subs:['Layer 1 (top): 3×3 = 9 blocks','Layer 2: 5×5 = 25 blocks','Layer 3: 7×7 = 49 blocks','Layer 4 (bottom): 9×9 = 81 blocks','Place beacon on top','Activate beacon']},
+{tab:'nether',name:'Return to Sender',type:'challenge',diff:4,how:"Deflect a ghast's fireball back at it and kill it. Hit the fireball with your fist, a sword, or shoot it with an arrow as it flies toward you. Requires precise timing — takes practice."},
+{tab:'nether',name:'Subspace Bubble',type:'challenge',diff:4,how:'Use the Nether as a shortcut to travel 7,000+ Overworld blocks. Build a portal, travel 875+ Nether blocks away, then build a second portal (1 Nether block = 8 Overworld blocks).'},
+{tab:'nether',name:'Hot Tourist Destinations',type:'challenge',diff:4,how:'Visit all 5 Nether biomes. Check the biome name in F3 debug screen.',subs:['Nether Wastes (orange netherrack, pigmen, ghasts)','Basalt Deltas (grey/black, magma cubes, basalt pillars)','Crimson Forest (red mushroom-trees, hoglins, piglins)','Soul Sand Valley (blue fog, soul sand, soul fire, ghasts)','Warped Forest (cyan mushroom-trees, endermen, striders)']},
+{tab:'nether',name:'Uneasy Alliance',type:'challenge',diff:5,how:"Kill a ghast in the Overworld. Must lure a ghast through a Nether portal — ghasts are huge (4x4 blocks) so you need a very large portal. Extremely tedious. Kill it once it\'s in the Overworld."},
+
+{tab:'nether',name:'Feels Like Home',type:'challenge',diff:4,how:"Ride a strider 50 blocks on lava in the Overworld. Bring a strider through your Nether portal (use a lead or warped fungus on a stick to lure it), then ride it in a straight line across lava — not circles."},
+{tab:'nether',name:'Cover Me in Debris',type:'challenge',diff:4,how:'Wear a full set of netherite armor. Must upgrade all 4 diamond pieces at a smithing table using a netherite upgrade template + netherite ingot each.',subs:['Mine 16 ancient debris total (4 ingots needed)','Craft netherite scrap: smelt 4 ancient debris','Craft 4 netherite ingots (4 scrap + 4 gold each)','Obtain full diamond armor','Find 4 Netherite Upgrade smithing templates (bastion remnants)','Upgrade helmet, chestplate, leggings, and boots']},
+{tab:'nether',name:'A Furious Cocktail',type:'challenge',diff:5,how:'Have all 13 potion effects active simultaneously: Speed, Slowness, Strength, Weakness, Regeneration, Poison, Fire Resistance, Water Breathing, Night Vision, Invisibility, Jump Boost, Resistance, and Slow Falling.',subs:['Brew Potion of Speed','Brew Potion of Slowness','Brew Potion of Strength','Brew Potion of Weakness','Brew Potion of Regeneration','Brew Potion of Poison','Brew Potion of Fire Resistance','Brew Potion of Water Breathing','Brew Potion of Night Vision','Brew Potion of Invisibility','Brew Potion of Leaping (Jump Boost)','Brew Potion of Resistance','Brew Potion of Slow Falling','Make them all splash potions (add gunpowder)','Apply all 13 simultaneously (use dispensers)']},
+{tab:'nether',name:'How Did We Get Here?',type:'challenge',diff:5,how:'SECRET — the single hardest advancement in Minecraft. Have ALL ~33 status effects active at the exact same moment. Requires: dispensers with splash potions, beacon, conduit, warden (Darkness), elder guardian (Mining Fatigue), shulker (Levitation), spectral arrow (Glowing), pufferfish (Nausea+Poison), golden apple (Absorption), suspicious stew with azure bluet (Blindness), wither rose (Wither), dolphin in water (Dolphin\'s Grace), a completed raid for Hero of the Village. In 1.21.11 also requires Breath of the Nautilus. EVERYTHING must be active simultaneously — takes enormous preparation.',subs:['Speed (potion)','Slowness (potion)','Haste (beacon)','Mining Fatigue (get hit by an elder guardian at an ocean monument)','Strength (potion or beacon)','Instant Health (splash potion — applied instantly)','Instant Damage (splash potion — applied instantly)','Jump Boost (potion)','Nausea (eat a pufferfish)','Regeneration (potion or beacon)','Resistance (beacon)','Fire Resistance (potion)','Water Breathing (potion)','Invisibility (potion)','Blindness (suspicious stew made with azure bluet)','Night Vision (potion)','Hunger (eat rotten flesh)','Weakness (potion)','Poison (eat a pufferfish)','Wither (step on a wither rose)','Absorption (eat a golden apple)','Saturation (suspicious stew made with dandelion or oxeye daisy)','Glowing (get hit by a spectral arrow)','Levitation (get hit by a shulker bullet)','Luck (Potion of Luck — use /give or cheats)','Bad Luck (Potion of Bad Luck — use /give or cheats)','Conduit Power (build conduit, swim in its range)','Hero of the Village (complete a raid beforehand — effect is timed!)','Dolphin\'s Grace (swim near a dolphin)','Darkness (be near a warden)','Trial Omen (drink ominous bottle near a trial spawner)','Raid Omen (drink ominous bottle near a villager with a job)','Breath of the Nautilus (ride a tamed nautilus — added 1.21.11)']},
+{tab:'end',name:'The End',type:'normal',diff:3,how:'Jump into an activated End Portal inside a stronghold.'},
+{tab:'end',name:'Free the End',type:'goal',diff:3,how:'Kill the Ender Dragon. Destroy the end crystals on the obsidian pillars first (use a bow), then attack the dragon when it lands. Bring: bow, arrows, golden apples, strong armor.',subs:['Find a stronghold (throw Eyes of Ender)','Fill all 12 End Portal frames with Eyes of Ender','Enter the End','Destroy all end crystals on pillars (use bow)','Attack dragon when it perches on the fountain','Kill the Ender Dragon']},
+{tab:'end',name:'The Next Generation',type:'goal',diff:3,how:"Get the dragon egg. After killing the dragon, don\'t punch it directly — place a torch one block below the egg, then break the block it sits on. It falls on the torch and you can pick it up."},
+{tab:'end',name:'You Need a Mint',type:'goal',diff:3,how:"Collect the Ender Dragon's breath. When she uses her breath attack (hovering and shooting a purple cloud), right-click the cloud with an empty glass bottle."},
+{tab:'end',name:'Remote Gateway',type:'normal',diff:3,how:'Use an end gateway. After killing the dragon, small gateway portals appear around the island edge. Throw an ender pearl into one to teleport to the outer End islands.'},
+{tab:'end',name:'The End... Again...',type:'goal',diff:3,how:'Respawn the Ender Dragon. Place 4 end crystals (7 glass + 1 ghast tear + 1 eye of ender each) on each of the 4 sides of the bedrock fountain.',subs:['Craft 4 end crystals (7 glass + 1 ghast tear + 1 eye of ender each)','Return to the main End island','Place one end crystal on each of the 4 sides of the bedrock fountain']},
+{tab:'end',name:'The City at the End of the Game',type:'normal',diff:3,how:'Enter an End City. Travel to the outer End islands via an end gateway, then explore until you find the tall purple tower structures with chorus plant decoration.'},
+{tab:'end',name:"Sky's the Limit",type:'goal',diff:3,how:'Find and pick up elytra. They hang in an item frame inside End Ships — the boat-shaped structures attached to some End Cities. Explore multiple cities if needed.'},
+{tab:'end',name:'Great View From Up Here',type:'challenge',diff:4,how:'Rise 50 blocks upward while levitated by a shulker bullet. Get hit by multiple shulker bullets to stack the levitation effect, and make sure you\'re in a tall enough room. Wear strong armor since shulkers deal damage.'},
+{tab:'adventure',name:'Adventure',type:'normal',diff:1,how:'Kill any entity, or be killed by one. Happens automatically almost immediately.'},
+{tab:'adventure',name:'Monster Hunter',type:'normal',diff:1,how:'Kill any one hostile mob.'},
+{tab:'adventure',name:'Sweet Dreams',type:'normal',diff:1,how:'Use a bed (right-click it) at night or during a thunderstorm.'},
+{tab:'adventure',name:'Take Aim',type:'normal',diff:1,how:'Shoot any entity with a bow or crossbow.'},
+{tab:'adventure',name:"Ol' Betsy",type:'normal',diff:1,how:'Shoot any projectile from a crossbow.'},
+{tab:'adventure',name:'What a Deal!',type:'normal',diff:2,how:'Buy anything from a villager or wandering trader using emeralds.'},
+{tab:'adventure',name:'Is It a Bird?',type:'normal',diff:2,how:'Use a spyglass (2 copper ingots + 1 amethyst shard) and zoom in on a parrot. Parrots spawn in jungle biomes.'},
+{tab:'adventure',name:'Sticky Situation',type:'normal',diff:2,how:'Slide against the side of a honey block while falling — it slows you down and sticks you to the wall.'},
+{tab:'adventure',name:'Light as a Rabbit',type:'normal',diff:2,how:"Wear leather boots and walk on powder snow. Without leather boots you\'ll sink through it. Powder snow generates in grove biomes and snowy mountain slopes."},
+{tab:'adventure',name:'Respecting the Remnants',type:'normal',diff:2,how:'Brush suspicious sand or gravel with a brush (feather + copper ingot + stick) to reveal a pottery sherd. Found in desert temples, ocean ruins, trail ruins.'},
+{tab:'adventure',name:"Isn't It Scute?",type:'normal',diff:2,how:'Brush an armadillo with a brush to get an armadillo scute. Armadillos spawn in savanna and badlands biomes.'},
+{tab:'adventure',name:'Surge Protector',type:'normal',diff:2,how:'Protect a villager from lightning with a copper lightning rod (3 copper ingots stacked vertically). Place the rod near villagers — during a thunderstorm lightning will hit the rod instead.'},
+{tab:'adventure',name:'A Throwaway Joke',type:'normal',diff:2,how:"Throw a trident and hit a mob. Enchant it with Loyalty so it returns automatically."},
+{tab:'adventure',name:'The Power of Books',type:'normal',diff:2,how:'Read a redstone signal from a chiseled bookshelf with a comparator. Place the bookshelf, attach a comparator to its side, and add or remove a book.'},
+{tab:'adventure',name:'Crafting a New Look',type:'normal',diff:2,how:'Apply any armor trim to any armor at a smithing table using an armor trim smithing template + material.',subs:['Find any armor trim template (shipwrecks, dungeons, ruins, etc.)','Collect the right material (diamond, gold, iron, amethyst, etc.)','Apply to any armor piece at a smithing table']},
+{tab:'adventure',name:'Sneak 100',type:'normal',diff:2,how:'Sneak past a sculk sensor without triggering it. Hold Shift (crouch) and move very slowly near a sculk sensor — they detect vibrations.'},
+{tab:'adventure',name:'Minecraft: Trial(s) Edition',type:'normal',diff:2,how:'Enter a trial chamber. They generate deep in the deepslate layer — explore deep underground or buy a map from a cartographer villager.'},
+{tab:'adventure',name:'Lighten Up',type:'normal',diff:2,how:'Scrape a copper bulb with an axe. Copper bulbs oxidize over time — right-clicking with an axe removes one stage of oxidation and makes it brighter.'},
+{tab:'adventure',name:'Crafters Crafting Crafters',type:'normal',diff:2,how:'Have a crafter block automatically craft another crafter. Set up a crafter with the crafter recipe and power it with redstone.'},
+{tab:'adventure',name:'Caves & Cliffs',type:'normal',diff:2,how:'Fall from Y=319 to Y=-59 in one drop. Build a pillar to max height, place water at the bottom (Y=-59), and jump off the top.'},
+{tab:'adventure',name:'Is It a Balloon?',type:'normal',diff:2,how:'While a ghast is looking at you, zoom in on it with a spyglass. Go to the Nether, find a ghast, face it, and use the spyglass.'},
+
+{tab:'adventure',name:'Is It a Plane?',type:'normal',diff:3,how:'Look at the Ender Dragon through a spyglass. Enter the End, find the dragon, and zoom in on it with your spyglass.'},
+{tab:'adventure',name:'Sound of Music',type:'normal',diff:2,how:'Play a music disc in a jukebox while in a meadow biome. Meadows are flower-filled plateaus. Bring any disc and a jukebox (8 planks + 1 diamond).'},
+{tab:'adventure',name:'Who Needs Rockets?',type:'normal',diff:2,how:'Boost yourself with a wind charge while gliding on elytra. Wind charges drop from breezes in trial chambers.'},
+{tab:'adventure',name:"Who's the Pillager Now?",type:'normal',diff:2,how:'Kill a pillager with a crossbow.'},
+{tab:'adventure',name:'Voluntary Exile',type:'normal',diff:2,how:'SECRET. Kill a raid captain — a pillager or vindicator wearing an ominous banner on their head. Found at pillager outposts and in patrols. Gives you Raid Omen.'},
+{tab:'adventure',name:'Heart Transplanter',type:'normal',diff:3,how:'Place a Creaking Heart between two Pale Oak Log blocks with proper vertical alignment. The heart must connect to pale oak logs directly above and below it to create a Creaking spawner.'},
+{tab:'adventure',name:'Careful Restoration',type:'normal',diff:3,how:'Craft a decorated pot using 4 pottery sherds (not regular bricks).',subs:['Find desert temple, ocean ruins, or trail ruins','Craft a brush (feather + copper ingot + stick)','Brush suspicious sand or gravel to find sherds','Collect 4 sherds (design doesn\'t matter)','Place 4 sherds in a diamond pattern on a crafting table']},
+{tab:'adventure',name:'Star Trader',type:'normal',diff:3,how:"Trade with a villager or wandering trader at or above Y=318. Bring a villager to a tall tower and trade at the top."},
+{tab:'adventure',name:'Postmortal',type:'goal',diff:3,how:"Hold a totem of undying in your main hand or offhand and take lethal damage — it saves your life and is consumed. Evokers in woodland mansions and raids drop them."},
+{tab:'adventure',name:'Hired Help',type:'goal',diff:3,how:'Spawn an iron golem. Arrange 4 iron blocks in a T-shape (2-wide arms, 3-tall body) and place a carved pumpkin on the top-center block.'},
+{tab:'adventure',name:'Very Very Frightening',type:'normal',diff:3,how:'Strike a villager with lightning using a Channeling trident during a thunderstorm. Throw the enchanted trident directly at a villager outdoors.'},
+{tab:'adventure',name:'Hero of the Village',type:'challenge',diff:3,how:"Defeat a raid. Kill a raid captain first (to get Raid Omen), enter a village to trigger the raid, then defeat all waves.",subs:['Kill a raid captain (pillager/vindicator with ominous banner) for Raid Omen','Enter a village to trigger the raid','Survive and defeat Wave 1','Survive and defeat Wave 2','Survive and defeat Wave 3 (evokers appear)','Survive and defeat Wave 4','Win the raid (bar empties)']},
+{tab:'adventure',name:'It Spreads',type:'challenge',diff:3,how:'Kill any mob that drops XP near a sculk catalyst. Sculk catalysts are in deep dark biomes — find them under large mountain ranges.'},
+{tab:'adventure',name:'Sniper Duel',type:'challenge',diff:4,how:'Kill a skeleton from 50+ horizontal blocks away with an arrow. Use a Power V bow, find a flat area, stand back 50+ blocks, and shoot.'},
+{tab:'adventure',name:'Bullseye',type:'challenge',diff:4,how:'Hit the bullseye (dead center) of a target block from 30+ horizontal blocks away with an arrow. Account for arrow drop by aiming slightly above the target.'},
+{tab:'adventure',name:'Two Birds, One Arrow',type:'challenge',diff:4,how:'Kill 2 phantoms with one Piercing crossbow arrow.',subs:['Enchant a crossbow with Piercing I or higher','Avoid sleeping for 3+ in-game days to spawn phantoms','Weaken both phantoms to nearly dead health','Line both up in a straight path','Kill both with a single piercing arrow']},
+{tab:'adventure',name:'Mob Kabob',type:'challenge',diff:4,how:'🆕 NEW in 1.21.11. Hit 5 different mob types in a single spear Charge attack.',subs:['Craft a spear','Gather 5 different mob types and funnel them into a tight line','Build up speed (sprint, mount, or elytra)','Charge through all 5 mobs in one hit']},
+{tab:'adventure',name:'Arbalistic',type:'challenge',diff:5,how:'Kill 5 DIFFERENT mob types with a single crossbow arrow (Piercing IV). All 5 must be alive, aligned in a perfect straight line, and killed by the one arrow.',subs:['Enchant crossbow with Piercing IV','Gather 5 different mob types (e.g., zombie, skeleton, creeper, spider, enderman)','Damage ALL 5 to near-death health','Perfectly align all 5 in a straight line','Fire one arrow through all 5']},
+{tab:'adventure',name:'Smithing with Style',type:'challenge',diff:5,how:'Apply all 8 specific rare armor trim templates at least once.',subs:['Spire Trim (end city chests)','Snout Trim (bastion remnant chests)','Rib Trim (nether fortress chests)','Ward Trim (ancient city chests)','Silence Trim (ancient city chests — very rare, rarest trim in the game)','Vex Trim (woodland mansion chests)','Tide Trim (elder guardian or ocean monument chests)','Wayfinder Trim (trail ruins)','Apply each trim to any armor piece at a smithing table']},
+{tab:'adventure',name:'Adventuring Time',type:'challenge',diff:5,how:'Visit all 50+ Overworld biomes. Check F3 for biome names. Rare biomes like mushroom fields and eroded badlands can be very hard to find.',subs:['Plains','Sunflower Plains','Meadow','Cherry Grove','Forest','Flower Forest','Birch Forest','Old Growth Birch Forest','Dark Forest','Taiga','Old Growth Pine Taiga','Old Growth Spruce Taiga','Snowy Taiga','Jungle','Sparse Jungle','Bamboo Jungle','Desert','Swamp','Mangrove Swamp','Badlands','Wooded Badlands','Eroded Badlands','Savanna','Savanna Plateau','Windswept Savanna','River','Frozen River','Beach','Snowy Beach','Stony Shore','Ocean','Deep Ocean','Cold Ocean','Deep Cold Ocean','Lukewarm Ocean','Deep Lukewarm Ocean','Warm Ocean','Frozen Ocean','Deep Frozen Ocean','Windswept Hills','Windswept Gravelly Hills','Windswept Forest','Jagged Peaks','Frozen Peaks','Stony Peaks','Snowy Slopes','Grove','Ice Spikes','Mushroom Fields','Deep Dark','Dripstone Caves','Lush Caves','Pale Garden']},
+{tab:'adventure',name:'Monsters Hunted',type:'challenge',diff:5,how:'Kill at least one of every hostile mob. In 1.21.11 this includes Zombie Nautilus, Zombie Horse, Camel Husk, and Parched. Some mobs require very specific conditions.',subs:['Zombie','Zombie Villager','Drowned','Husk','Skeleton','Stray','Bogged','Wither Skeleton','Spider','Cave Spider','Creeper','Enderman','Endermite','Silverfish','Blaze','Ghast','Magma Cube','Slime','Witch','Phantom','Pillager','Vindicator','Evoker','Ravager','Vex','Elder Guardian','Guardian','Shulker','Piglin','Piglin Brute','Hoglin','Zoglin','Zombified Piglin','Warden','Breeze','Zombie Horse (1.21.11)','Zombie Nautilus (1.21.11)','Camel Husk (1.21.11)','Parched (1.21.11)']},
+
+{tab:'adventure',name:'Under Lock and Key',type:'normal',diff:2,how:'Unlock a vault in a trial chamber using a trial key. Trial keys drop from trial spawners after completing a trial (killing all spawned mobs). Right-click the vault with the key to open it.'},
+{tab:'adventure',name:'Revaulting',type:'challenge',diff:3,how:'Unlock an ominous vault using an ominous trial key. Get ominous trial keys by completing ominous trials — drink an ominous bottle near a trial spawner to trigger one. Ominous vaults glow differently from regular vaults.',subs:['Find a trial chamber','Drink an ominous bottle near a trial spawner to trigger an ominous trial','Kill all mobs from the ominous trial spawner','Collect the ominous trial key that drops','Find an ominous vault (glowing reddish) in the chamber','Unlock it with the ominous trial key']},
+{tab:'adventure',name:'Blowback',type:'challenge',diff:4,how:'Kill a breeze by deflecting its own wind charge back at it. Hit the wind charge projectile with your fist or sword as it flies toward you. Breezes spawn in trial chambers. Their wind charges don\'t deal much damage so you have room to practice timing.',},
+{tab:'adventure',name:'Over-Overkill',type:'challenge',diff:4,how:'Deal 50 hearts (100 HP) of damage in a single hit using a mace\'s smash attack. Fall from a great height and land directly on a mob with the mace held — the smash attack bonus damage scales with fall distance. Use wind charges or a high tower to fall far enough.',},
+{tab:'husbandry',name:'Husbandry',type:'normal',diff:1,how:'Eat any food item.'},
+{tab:'husbandry',name:'A Seedy Place',type:'normal',diff:1,how:'Plant a seed in farmland. Till dirt with a hoe, then plant wheat seeds (drop from tall grass).'},
+{tab:'husbandry',name:'Fishy Business',type:'normal',diff:1,how:'Catch a fish with a fishing rod (3 sticks + 2 string) in any body of water.'},
+{tab:'husbandry',name:'Total Beelocation',type:'normal',diff:2,how:'Mine a bee nest or hive with a Silk Touch tool while bees are inside. Do it at night when bees are all inside.'},
+{tab:'husbandry',name:'Glow and Behold!',type:'normal',diff:2,how:"Use a glow ink sac on a sign. Glow squids spawn in dark underwater caves and drop glow ink sacs when killed."},
+{tab:'husbandry',name:'Wax On',type:'normal',diff:2,how:'Right-click a copper block with a honeycomb to wax it. Collect honeycomb with shears from a full bee nest (3 honey levels).'},
+{tab:'husbandry',name:'Wax Off',type:'normal',diff:2,how:'Use an axe on a waxed copper block to remove the wax.'},
+
+{tab:'husbandry',name:'Bee Our Guest',type:'normal',diff:2,how:'Collect a bottle of honey from a beehive or bee nest without angering the bees. Place a lit campfire directly underneath the hive first, then right-click the full hive (honey dripping) with an empty glass bottle.'},
+{tab:'husbandry',name:"You've Got a Friend in Me",type:'normal',diff:2,how:"SECRET. Free an allay from a cage. Allays are found trapped in small cages near pillager outposts and inside woodland mansions. Break the cage (oak fence + oak fence gate structure) to free it."},
+{tab:'husbandry',name:'The Parrots and the Bats',type:'normal',diff:2,how:'Breed two animals of the same species. Feed two cows wheat, two pigs carrots, two sheep wheat, two chickens seeds, etc.'},
+{tab:'husbandry',name:'Best Friends Forever',type:'normal',diff:2,how:'Tame any tameable animal. Wolf (bones), cat (raw fish near a village), horse/donkey (keep riding until hearts), parrot (any seeds). In 1.21.11 also includes nautilus (tamed with pufferfish).'},
+
+{tab:'husbandry',name:'The Whole Pack',type:'goal',diff:3,how:'Tame all 35 wolf variants. Different wolf variants spawn in specific biomes — pale wolf (plains), ashen wolf (snowy), black wolf (old growth taiga), chestnut wolf (forest), rusty wolf (jungle), snowy wolf (grove), spotted wolf (savanna), striped wolf (badlands), and woods wolf (dark forest), plus more. Tame each with bones.',subs:['Pale Wolf (meadow/plains)','Ashen Wolf (snowy taiga)','Black Wolf (old growth pine/spruce taiga)','Chestnut Wolf (forest/flower forest)','Rusty Wolf (sparse jungle/jungle)','Snowy Wolf (grove/snowy slopes)','Spotted Wolf (savanna/plateau)','Striped Wolf (badlands/wooded badlands)','Woods Wolf (dark forest)','...and all remaining variants (check F3 biome + explore each biome)']},
+{tab:'husbandry',name:'Shear Brilliance',type:'normal',diff:2,how:'Remove wolf armor from a wolf using shears. Tame a wolf, craft wolf armor (armadillo scutes), put it on the wolf, then right-click the armored wolf with shears to remove it.'},
+{tab:'husbandry',name:'Good as New',type:'normal',diff:2,how:'Repair damaged wolf armor by using armadillo scutes directly on the wolf wearing it (NOT in an anvil). Tame a wolf, put wolf armor on it, let it get damaged in combat, then right-click the wolf with armadillo scutes in hand.'},
+{tab:'husbandry',name:'Whatever Floats Your Goat!',type:'normal',diff:2,how:'Get a goat into a boat. Lure a goat near water using wheat, then place a boat directly under it.'},
+{tab:'husbandry',name:'The Cutest Predator',type:'normal',diff:2,how:'Catch an axolotl in a water bucket. Axolotls spawn in underground lush cave biomes — right-click one with a water bucket.'},
+{tab:'husbandry',name:'Tactical Fishing',type:'normal',diff:2,how:'Catch a live fish in a water bucket — right-click a swimming cod, salmon, pufferfish, or tropical fish with a water bucket.'},
+{tab:'husbandry',name:'Bukkit Bukkit',type:'normal',diff:2,how:'Catch a tadpole in a water bucket. Find frog eggs in a swamp or mangrove swamp, wait for them to hatch, then right-click a tadpole with a bucket.'},
+{tab:'husbandry',name:'Smells Interesting',type:'normal',diff:2,how:'Obtain a torchflower. Have a sniffer sniff and dig one up — sniffers automatically find torchflower seeds from the ground.'},
+{tab:'husbandry',name:'Little Sniffs',type:'normal',diff:2,how:'Feed a torchflower seed to a sniffer. Find a sniffer egg in warm ocean ruin chests, hatch it (faster on moss), and feed the grown sniffer a torchflower seed.'},
+{tab:'husbandry',name:'Stay Hydrated!',type:'normal',diff:2,how:'Place a Dried Ghast block into water. Dried ghasts spawn in Nether soul sand valleys — drop one into a water source and it begins hydrating into a ghastling.'},
+{tab:'husbandry',name:'With Our Powers Combined!',type:'normal',diff:2,how:'Have a grown torchflower AND a pitcher plant present at the same time. Both are found by sniffers.',subs:['Find/hatch a sniffer egg (warm ocean ruin chests)','Wait for sniffer to dig up a torchflower seed','Grow the torchflower','Wait for sniffer to dig up a pitcher pod','Grow the pitcher plant to full size (multiple growth stages)']},
+{tab:'husbandry',name:'When the Squad Hops into Town',type:'normal',diff:2,how:"Gather all 3 frog color variants in one spot. The tadpole's biome determines adult color: temperate (swamp), cold (snowy biome), warm (jungle/desert/nether).",subs:['Breed frogs in a swamp biome → get temperate (orange) frogs','Breed frogs in a frozen/snowy biome → get cold (grey/white) frogs','Breed frogs in jungle, desert, or Nether → get warm (green) frogs','Get at least one of each in the same location']},
+{tab:'husbandry',name:'It Spreads',type:'normal',diff:2,how:'Get a frog to eat a small magma cube, producing a froglight. Lead a frog near small magma cubes — the frog eats them and drops a froglight matching its variant color.'},
+{tab:'husbandry',name:'Planting the Past',type:'normal',diff:2,how:"Place a fern or dead bush in a flower pot. These are considered 'ancient' plants in Minecraft lore."},
+{tab:'husbandry',name:'Birthday Song',type:'goal',diff:3,how:"Get an allay to drop a cake next to a note block while music is playing.",subs:['Find an allay (pillager outpost cages or woodland mansion)','Free and follow the allay','Give the allay a cake item','Place a note block nearby','Play the note block — the allay dances and drops the cake beside it']},
+
+{tab:'husbandry',name:'Serious Dedication',type:'challenge',diff:3,how:"Upgrade a diamond hoe to netherite at a smithing table. You need a full netherite ingot just for a hoe. The advancement description mocks you for it."},
+{tab:'husbandry',name:'Two by Two',type:'challenge',diff:4,how:'Breed every breedable animal at least once. In 1.21.11 this now includes nautilus (pufferfish).',subs:['Cow (wheat)','Sheep (wheat)','Pig (carrot, potato, or beetroot)','Chicken (any seeds)','Wolf (any raw meat)','Cat (raw cod or raw salmon)','Horse (golden apple or golden carrot)','Donkey (golden apple or golden carrot)','Llama (hay bale)','Rabbit (dandelion, golden carrot, or hay bale)','Turtle (seagrass — breed on home beach!)','Fox (sweet berries or glow berries)','Panda (bamboo — must be in bamboo jungle biome)','Bee (any flower)','Goat (wheat)','Axolotl (bucket of tropical fish)','Frog (slimeball)','Camel (cactus)','Sniffer (torchflower seed)','Armadillo (spider eye)','Nautilus (pufferfish — 1.21.11)']},
+
+{tab:'husbandry',name:'A Complete Catalogue',type:'challenge',diff:4,how:'Tame all 11 cat variants. Cats spawn near villages — different biomes spawn different variants. The jungle variant is rare. Use raw cod or raw salmon to tame them. You must tame one of each: tabby, tuxedo, red, siamese, british shorthair, calico, persian, ragdoll, white, jellie, and black.',subs:['Tabby (villages)','Tuxedo (villages)','Red (villages)','Siamese (villages)','British Shorthair (villages)','Calico (villages)','Persian (villages)','Ragdoll (villages)','White (villages)','Jellie (villages — rarest)','Black (villages — only spawns on a full moon!)']},
+{tab:'husbandry',name:'The Healing Power of Friendship!',type:'challenge',diff:4,how:"Heal a passive or tamed mob using conduit power. Build an active conduit underwater and have a friendly mob swim in its AoE range.",subs:['Get a heart of the sea (from buried treasure — use a treasure map)','Collect 8 nautilus shells (from fishing or drowned drops)','Build the conduit frame: 16 prismarine/prismarine bricks/sea lanterns/dark prismarine arranged in 3 rings','Activate the conduit','Get a friendly mob (wolf, cat, cow, etc.) to swim in its healing range']},
+{tab:'husbandry',name:'Rode Piece',type:'normal',diff:3,how:'Ride a happy ghast. Requires growing one from a dried ghast, then equipping a harness.',subs:['Find a dried ghast in a Nether soul sand valley','Place it in water to hydrate — it becomes a ghastling','Feed snowballs to the ghastling to speed up its growth into a happy ghast','Craft a ghast harness','Equip the harness on the adult happy ghast','Mount and ride it']},
+{tab:'husbandry',name:'A Balanced Diet',type:'goal',diff:4,how:'Eat every single edible food item in the game at least once (~40 items). Includes rare items like enchanted golden apple, pufferfish, spider eye, and various stews.',subs:['Apple','Baked Potato','Beetroot','Beetroot Soup','Bread','Carrot','Chorus Fruit','Cooked Beef (Steak)','Cooked Chicken','Cooked Cod','Cooked Mutton','Cooked Porkchop','Cooked Rabbit','Cooked Salmon','Cookie','Dried Kelp','Enchanted Golden Apple','Golden Apple','Golden Carrot','Honey Bottle','Melon Slice','Mushroom Stew','Poisonous Potato','Raw Beef','Raw Chicken','Raw Cod','Raw Mutton','Raw Porkchop','Raw Rabbit','Raw Salmon','Pufferfish','Pumpkin Pie','Rabbit Stew','Rotten Flesh','Spider Eye','Suspicious Stew','Sweet Berries','Glow Berries','Tropical Fish']},
+];
+
+
+const ADV_ICONS = {
+  // Minecraft tab
+  'Minecraft':'🪵','Stone Age':'⛏️','Getting an Upgrade':'⛏️','Acquire Hardware':'🪨',
+  'Suit Up':'🛡️','Hot Stuff':'🌋','Isn\'t It Iron Pick':'⛏️','Not Today, Thank You':'🛡️',
+  'Ice Bucket Challenge':'🪣','Diamonds!':'💎','We Need to Go Deeper':'🔥',
+  'Cover Me with Diamonds':'💎','Enchanter':'📖','Zombie Doctor':'🧟',
+  'Eye Spy':'👁️','The End?':'🌀',
+  // Nether tab
+  'Nether':'🔥','Those Were the Days':'🏰','A Terrible Fortress':'🏯',
+  'Who is Cutting Onions?':'😢','Oh Shiny':'✨','This Boat Has Legs':'🦎',
+  'War Pigs':'🐷','Into Fire':'🔥','Local Brewery':'🧪',
+  'Hidden in the Depths':'💀','Not Quite &quot;Nine&quot; Lives':'⚓',
+  'Country Lode, Take Me Home':'🧭','Spooky Scary Skeleton':'💀',
+  'Withering Heights':'💀','Bring Home the Beacon':'🗼','Beaconator':'🗼',
+  'Return to Sender':'🔥','Subspace Bubble':'🗺️','Hot Tourist Destinations':'🗺️',
+  'Uneasy Alliance':'👻','Feels Like Home':'🦎','Cover Me in Debris':'🪨',
+  'A Furious Cocktail':'🧪','How Did We Get Here?':'🪣',
+  // End tab
+  'The End':'🌌','Free the End':'🐉','The Next Generation':'🥚',
+  'You Need a Mint':'🐉','Remote Gateway':'🌀','The End... Again...':'💎',
+  'The City at the End of the Game':'🏙️',"Sky\'s the Limit":'🦋',
+  'Great View From Up Here':'🦋',
+  // Adventure tab
+  'Adventure':'🗺️','Monster Hunter':'⚔️','Sweet Dreams':'🛏️','Take Aim':'🏹',
+  "Ol\' Betsy":'🏹','What a Deal!':'💚','Is It a Bird?':'🔭','Sticky Situation':'🍯',
+  'Light as a Rabbit':'🐇','Respecting the Remnants':'🖌️',
+  "Isn\'t It Scute?":'🦎','Surge Protector':'⚡','A Throwaway Joke':'🔱',
+  'The Power of Books':'📚','Crafting a New Look':'🔨','Sneak 100':'👣',
+  'Minecraft: Trial(s) Edition':'⚔️','Lighten Up':'💡','Crafters Crafting Crafters':'🔧',
+  'Caves & Cliffs':'🏔️','Is It a Balloon?':'🔭','Is It a Plane?':'🔭',
+  'Sound of Music':'🎵','Who Needs Rockets?':'💨',"Who\'s the Pillager Now?":'🏹',
+  'Voluntary Exile':'🚩','Heart Transplanter':'🌲','Careful Restoration':'🏺',
+  'Star Trader':'⭐','Postmortal':'🧿','Hired Help':'🎃','Very Very Frightening':'⚡',
+  'Hero of the Village':'🏅','It Spreads':'🌿','Sniper Duel':'🏹','Bullseye':'🎯',
+  'Two Birds, One Arrow':'🏹','Mob Kabob':'🗡️','Arbalistic':'🏹',
+  'Smithing with Style':'⚒️','Adventuring Time':'🌍','Monsters Hunted':'💀',
+  'Under Lock and Key':'🔑','Revaulting':'🗝️','Blowback':'💨','Over-Overkill':'🔨',
+  // Husbandry tab
+  'Husbandry':'🌾','A Seedy Place':'🌱','Fishy Business':'🎣','Total Beelocation':'🐝',
+  'Glow and Behold!':'🦑','Wax On':'🐝','Wax Off':'🪓','Bee Our Guest':'🍯',
+  'The Parrots and the Bats':'🦜','Best Friends Forever':'🐺','The Whole Pack':'🐺',
+  'Shear Brilliance':'✂️','Good as New':'🦔',"Whatever Floats Your Goat!":'🐐',
+  'The Cutest Predator':'🦎','Tactical Fishing':'🪣','Bukkit Bukkit':'🐸',
+  'Smells Interesting':'🌸','Little Sniffs':'🌸','Stay Hydrated!':'👻',
+  'With Our Powers Combined!':'🌸','When the Squad Hops into Town':'🐸',
+  'It Spreads':'🐸','Planting the Past':'🌿','Birthday Song':'🎂',
+  'Serious Dedication':'🪓','Two by Two':'❤️','A Complete Catalogue':'🐈',
+  'The Healing Power of Friendship!':'✨','Rode Piece':'👻','A Balanced Diet':'🍎',
+  "You\'ve Got a Friend in Me":'🧚',
+};
+
+const STORE_DONE='mc_adv_done_v7';
+const STORE_SUBS='mc_adv_subs_v7';
+const STORE_DATES='mc_adv_dates_v7';
+function loadDone(){try{return new Set(JSON.parse(localStorage.getItem(STORE_DONE)||'[]'));}catch(e){return new Set();}}
+function loadSubs(){try{return JSON.parse(localStorage.getItem(STORE_SUBS)||'{}');}catch(e){return{};}}
+function saveDone(){try{localStorage.setItem(STORE_DONE,JSON.stringify([...done]));}catch(e){}}
+function saveSubs(){try{localStorage.setItem(STORE_SUBS,JSON.stringify(subs));}catch(e){}}
+function loadDates(){try{return JSON.parse(localStorage.getItem(STORE_DATES)||'{}');}catch(e){return{};}}
+function saveDates(){try{localStorage.setItem(STORE_DATES,JSON.stringify(dates));}catch(e){}}
+let done=loadDone();
+let subs=loadSubs();
+let dates=loadDates();
+let currentFilter='all';
+
+function updateProgress(){
+  const total=ADV.length,n=done.size,pct=total?Math.round(n/total*100):0;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progLabel').textContent=n+' / '+total+' completed ('+pct+'%)';
+}
+function setFilter(tab,btn){
+  currentFilter=tab;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+function applyFilter(){
+  const q=document.getElementById('searchBox').value.toLowerCase().trim();
+  document.querySelectorAll('.adv-card').forEach(card=>{
+    const t=card.dataset.tab,type=card.dataset.type,isDone=done.has(+card.dataset.idx);
+    let show=true;
+    if(currentFilter==='challenge')show=type==='challenge';
+    else if(currentFilter==='incomplete')show=!isDone;
+    else if(currentFilter!=='all')show=t===currentFilter;
+    if(show&&q){const txt=(card.dataset.name+' '+card.dataset.how).toLowerCase();show=txt.includes(q);}
+    card.classList.toggle('hidden',!show);
+  });
+  document.querySelectorAll('.tab-section').forEach(sec=>{
+    const vis=[...sec.querySelectorAll('.adv-card')].some(c=>!c.classList.contains('hidden'));
+    sec.classList.toggle('hidden',!vis);
+  });
+}
+function toggleDone(idx){
+  const card=document.querySelector(`.adv-card[data-idx="${idx}"]`);
+  if(!card)return;
+  const cb=card.querySelector('.adv-main-cb');
+  const lbl=card.querySelector('.adv-main-cb-label');
+  const stamp=card.querySelector('.done-stamp');
+  const wasDown=done.has(idx);
+  if(wasDown){
+    done.delete(idx);
+    delete dates[idx];
+    card.classList.remove('done');
+    if(cb)cb.checked=false;
+    if(lbl)lbl.textContent='Mark as done';
+    if(stamp)stamp.textContent='';
+  } else {
+    done.add(idx);
+    const now=new Date();
+    dates[idx]=now.toISOString();
+    card.classList.add('done');
+    if(cb)cb.checked=true;
+    const dateStr=formatDate(now);
+    if(lbl)lbl.textContent='Completed ✔';
+    if(stamp)stamp.textContent='📅 '+dateStr;
+    const cbEl=card.querySelector('.adv-main-cb');
+    if(cbEl){const r=cbEl.getBoundingClientRect();spawnConfetti(r.left+r.width/2,r.top+r.height/2);}
+  }
+  saveDone();saveDates();updateProgress();
+  if(currentFilter==='incomplete')applyFilter();
+  if(done.size===ADV.length)setTimeout(showCelebration,600);
+}
+
+function formatDate(d){
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+}
+function toggleExpand(idx){
+  const list=document.querySelector(`.sub-checklist[data-idx="${idx}"]`);
+  const btn=document.querySelector(`.btn-expand[data-idx="${idx}"]`);
+  if(!list)return;
+  const open=list.classList.toggle('open');
+  btn.textContent=open?'▲ hide steps':'▼ show steps';
+}
+function toggleSub(advIdx,subIdx,el){
+  if(!subs[advIdx])subs[advIdx]={};
+  subs[advIdx][subIdx]=el.checked;
+  saveSubs();
+  el.closest('.sub-item').classList.toggle('checked',el.checked);
+  updateSubProgress(advIdx);
+}
+function updateSubProgress(advIdx){
+  const adv=ADV[advIdx];
+  if(!adv.subs)return;
+  const n=adv.subs.filter((_,i)=>subs[advIdx]&&subs[advIdx][i]).length;
+  const el=document.querySelector(`.sub-progress[data-idx="${advIdx}"]`);
+  if(el)el.textContent=n+' / '+adv.subs.length+' steps done';
+}
+function stars(d){return`<span class="d${d}">${'★'.repeat(d)}${'☆'.repeat(5-d)}</span>`;}
+function badge(type){const l={normal:'ADVANCEMENT',goal:'GOAL',challenge:'CHALLENGE'};return`<span class="type-badge type-${type}">${l[type]}</span>`;}
+
+const TABS=[
+  {id:'minecraft',label:'MINECRAFT TAB',icon:'🌱'},
+  {id:'nether',   label:'NETHER TAB',   icon:'🔥'},
+  {id:'end',      label:'THE END TAB',  icon:'🌌'},
+  {id:'adventure',label:'ADVENTURE TAB',icon:'⚔'},
+  {id:'husbandry',label:'HUSBANDRY TAB',icon:'🌾'},
+];
+
+function buildUI(){
+  let html='';
+  for(const tab of TABS){
+    const items=ADV.map((a,i)=>({...a,idx:i})).filter(a=>a.tab===tab.id).sort((a,b)=>a.diff-b.diff);
+    html+=`<div class="tab-section tab-${tab.id}"><div class="section-header"><span>${tab.icon}</span><h2>${tab.label}</h2><span class="section-count">${items.length} advancements</span></div><div class="adv-grid">`;
+    for(const a of items){
+      const isDone=done.has(a.idx);
+      const hasSubs=a.subs&&a.subs.length>0;
+      const doneCnt=hasSubs?a.subs.filter((_,i)=>subs[a.idx]&&subs[a.idx][i]).length:0;
+      let subHtml='';
+      if(hasSubs){
+        const subItems=a.subs.map((s,si)=>{
+          const checked=subs[a.idx]&&subs[a.idx][si];
+          return`<label class="sub-item${checked?' checked':''}"><input type="checkbox"${checked?' checked':''} onchange="toggleSub(${a.idx},${si},this)"><span>${s}</span></label>`;
+        }).join('');
+        subHtml=`<div class="sub-checklist" data-idx="${a.idx}">${subItems}<div class="sub-progress" data-idx="${a.idx}">${doneCnt} / ${a.subs.length} steps done</div></div>`;
+      }
+      html+=`<div class="adv-card${isDone?' done':''}" data-idx="${a.idx}" data-tab="${a.tab}" data-type="${a.type}" data-name="${a.name}" data-how="${a.how.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">
+${badge(a.type)}<div class="adv-name">${a.name}</div><div class="adv-difficulty">${stars(a.diff)}</div><div class="adv-how">${a.how}</div>${subHtml}<label class="adv-main-cb-wrap"><input type="checkbox" class="adv-main-cb"${isDone?' checked':''} onchange="toggleDone(${a.idx})"><span class="adv-main-cb-label">${isDone?'Completed ✔':'Mark as done'}</span></label>${hasSubs?`<div class="card-footer"><button class="btn-small btn-expand" data-idx="${a.idx}" onclick="toggleExpand(${a.idx})">▼ show steps</button></div>`:''}</div>`;
+    }
+    html+='</div></div>';
+  }
+  document.getElementById('mainContent').innerHTML=html;
+  updateProgress();
+}
+buildUI();
+document.getElementById('searchBox').addEventListener('input',applyFilter);
+
+// ── RANDOM ADVANCEMENT PICKER ──
+let lastRandIdx = null;
+function pickRandom(){
+  const btn = document.getElementById('randBtn');
+  const incomplete = ADV.map((_,i)=>i).filter(i=>!done.has(i));
+  if(incomplete.length===0){ alert('You\'ve completed every advancement! 🎉'); return; }
+
+  // Clear previous highlight
+  if(lastRandIdx!==null){
+    const prev=document.querySelector(`.adv-card[data-idx="${lastRandIdx}"]`);
+    if(prev) prev.classList.remove('rand-highlight');
+  }
+
+  // Spin animation
+  btn.classList.add('spinning');
+  btn.textContent='🎲 ...';
+
+  let spins=0;
+  const maxSpins=14;
+  const spinInterval=setInterval(()=>{
+    const randI=incomplete[Math.floor(Math.random()*incomplete.length)];
+    document.querySelectorAll('.adv-card.rand-highlight').forEach(c=>c.classList.remove('rand-highlight'));
+    const card=document.querySelector(`.adv-card[data-idx="${randI}"]`);
+    if(card) card.classList.add('rand-highlight');
+    spins++;
+    if(spins>=maxSpins){
+      clearInterval(spinInterval);
+      btn.classList.remove('spinning');
+      btn.textContent='🎲 RANDOM';
+      // Final pick
+      const finalIdx=incomplete[Math.floor(Math.random()*incomplete.length)];
+      document.querySelectorAll('.adv-card.rand-highlight').forEach(c=>c.classList.remove('rand-highlight'));
+      lastRandIdx=finalIdx;
+      const finalCard=document.querySelector(`.adv-card[data-idx="${finalIdx}"]`);
+      if(finalCard){
+        finalCard.classList.add('rand-highlight');
+        // Switch to correct tab filter and scroll to it
+        const tab=ADV[finalIdx].tab;
+        setFilter('all', document.querySelector('.filter-btn.active'));
+        setTimeout(()=>{
+          finalCard.scrollIntoView({behavior:'smooth',block:'center'});
+        },100);
+      }
+    }
+  }, 80);
+}
+
+// ── 100% CELEBRATION ──
+function showCelebration(){
+  document.getElementById('celebrate').classList.add('show');
+  // Big confetti burst from center
+  for(let i=0;i<5;i++){
+    setTimeout(()=>{
+      spawnConfetti(window.innerWidth/2, window.innerHeight/3);
+      spawnConfetti(window.innerWidth*0.2, window.innerHeight/2);
+      spawnConfetti(window.innerWidth*0.8, window.innerHeight/2);
+    }, i*300);
+  }
+}
+
+</script>
+
+
+<div id="celebrate">
+  <div class="celebrate-stars">⭐🌟✨🌟⭐</div>
+  <h2>ALL ADVANCEMENTS<br>COMPLETED!</h2>
+  <p>You and your friend got every single one.<br>Absolute legends. 🎉</p>
+  <button id="celebrate-close" onclick="document.getElementById('celebrate').classList.remove('show')">CLOSE</button>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+</body>
+</html>
+
+<script>
+
+// ── CONFETTI ──
+const confCanvas = document.getElementById('confetti-canvas');
+const confCtx = confCanvas.getContext('2d');
+let confParticles = [];
+let confAnim = null;
+
+function resizeConf() {
+  confCanvas.width = window.innerWidth;
+  confCanvas.height = window.innerHeight;
+}
+resizeConf();
+window.addEventListener('resize', resizeConf);
+
+function spawnConfetti(x, y) {
+  const colors = ['#f5c542','#5da83d','#4fc3c8','#9b72cf','#e05050','#f0a030','#60d0ff'];
+  for (let i = 0; i < 60; i++) {
+    confParticles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 14,
+      vy: (Math.random() * -12) - 4,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 10,
+      gravity: 0.5,
+      life: 1,
+      decay: Math.random() * 0.015 + 0.01,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+    });
+  }
+  if (!confAnim) animConf();
+}
+
+function animConf() {
+  confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+  confParticles = confParticles.filter(p => p.life > 0);
+  for (const p of confParticles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += p.gravity;
+    p.vx *= 0.98;
+    p.rotation += p.rotSpeed;
+    p.life -= p.decay;
+    confCtx.save();
+    confCtx.globalAlpha = Math.max(0, p.life);
+    confCtx.fillStyle = p.color;
+    confCtx.translate(p.x, p.y);
+    confCtx.rotate(p.rotation * Math.PI / 180);
+    if (p.shape === 'rect') {
+      confCtx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+    } else {
+      confCtx.beginPath();
+      confCtx.arc(0, 0, p.size/2, 0, Math.PI*2);
+      confCtx.fill();
+    }
+    confCtx.restore();
+  }
+  if (confParticles.length > 0) {
+    confAnim = requestAnimationFrame(animConf);
+  } else {
+    confAnim = null;
+    confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+  }
+}
+
+</script>
