@@ -100,6 +100,65 @@ main{max-width:1120px;margin:0 auto;padding:20px 14px 80px;}
 .celebrate-stars{font-size:2.5rem;letter-spacing:8px;margin-bottom:16px;animation:starSpin 3s ease-in-out infinite;}
 @keyframes starSpin{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
 
+
+/* Version selector */
+.version-bar {
+  background: #0d1117;
+  border-bottom: 3px solid var(--gold);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.version-bar label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: .5rem;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.version-select {
+  font-family: 'Press Start 2P', monospace;
+  font-size: .5rem;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  letter-spacing: .5px;
+}
+.version-select:hover, .version-select:focus {
+  background: rgba(245,197,66,.1);
+}
+.version-select option {
+  background: #1e2433;
+  color: var(--text);
+  font-family: monospace;
+}
+.version-info {
+  font-family: 'VT323', monospace;
+  font-size: 1rem;
+  color: var(--muted);
+}
+.adv-card.version-locked {
+  display: none !important;
+}
+.version-badge {
+  display: inline-block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: .32rem;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(155,114,207,.2);
+  border: 1px solid var(--end);
+  color: #c0a0f0;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 </style>
 </head>
 <body>
@@ -107,6 +166,20 @@ main{max-width:1120px;margin:0 auto;padding:20px 14px 80px;}
   <h1>⛏ MINECRAFT JAVA 1.21.11<br>ADVANCEMENT TRACKER</h1>
   <p>127 advancements · easiest → hardest · saves between refreshes</p>
 </header>
+
+<div class="version-bar">
+  <label>⚙ VERSION:</label>
+  <select class="version-select" id="versionSelect" onchange="setVersion(this.value)">
+    <option value="1.20">Java 1.20 / 1.20.1 — Trails &amp; Tales</option>
+    <option value="1.20.5">Java 1.20.5 / 1.20.6 — Spring to Life</option>
+    <option value="1.21">Java 1.21 / 1.21.1 — Tricky Trials</option>
+    <option value="1.21.4">Java 1.21.4 — Winter Drop</option>
+    <option value="1.21.6">Java 1.21.6 — Chase the Skies</option>
+    <option value="1.21.11" selected>Java 1.21.11 — Mounts of Mayhem</option>
+  </select>
+  <span class="version-info" id="versionInfo">127 advancements</span>
+</div>
+
 <div class="progress-wrap">
   <div class="progress-track"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
   <div class="progress-label" id="progLabel">0 / 127 completed (0%)</div>
@@ -263,6 +336,42 @@ const ADV=[
 ];
 
 
+const ADV_VERSION = {
+  'Respecting the Remnants':'1.20',
+  'Careful Restoration':'1.20',
+  'Smells Interesting':'1.20',
+  'Little Sniffs':'1.20',
+  'With Our Powers Combined!':'1.20',
+  'Sound of Music':'1.20',
+  'Isn\'t It Scute?':'1.20.5',
+  'The Whole Pack':'1.20.5',
+  'Shear Brilliance':'1.20.5',
+  'Good as New':'1.20.5',
+  'Minecraft: Trial(s) Edition':'1.21',
+  'Lighten Up':'1.21',
+  'Crafters Crafting Crafters':'1.21',
+  'Who Needs Rockets?':'1.21',
+  'Under Lock and Key':'1.21',
+  'Revaulting':'1.21',
+  'Blowback':'1.21',
+  'Over-Overkill':'1.21',
+  'Heart Transplanter':'1.21.4',
+  'Stay Hydrated!':'1.21.6',
+  'Rode Piece':'1.21.6',
+  'Mob Kabob':'1.21.11',
+};
+
+const VERSION_ORDER = ['1.20','1.20.5','1.21','1.21.4','1.21.6','1.21.11'];
+
+function versionGTE(a, b) {
+  return VERSION_ORDER.indexOf(a) >= VERSION_ORDER.indexOf(b);
+}
+function advAvailableIn(advName, selectedVer) {
+  const addedIn = ADV_VERSION[advName];
+  if (!addedIn) return true; // pre-1.20, always available
+  return versionGTE(selectedVer, addedIn);
+}
+
 const ADV_ICONS = {
   // Minecraft tab
   'Minecraft':'🪵','Stone Age':'⛏️','Getting an Upgrade':'⛏️','Acquire Hardware':'🪨',
@@ -351,7 +460,7 @@ function applyFilter(){
     card.classList.toggle('hidden',!show);
   });
   document.querySelectorAll('.tab-section').forEach(sec=>{
-    const vis=[...sec.querySelectorAll('.adv-card')].some(c=>!c.classList.contains('hidden'));
+    const vis=[...sec.querySelectorAll('.adv-card')].some(c=>!c.classList.contains('hidden')&&!c.classList.contains('version-locked'));
     sec.classList.toggle('hidden',!vis);
   });
 }
@@ -439,15 +548,67 @@ function buildUI(){
         }).join('');
         subHtml=`<div class="sub-checklist" data-idx="${a.idx}">${subItems}<div class="sub-progress" data-idx="${a.idx}">${doneCnt} / ${a.subs.length} steps done</div></div>`;
       }
-      html+=`<div class="adv-card${isDone?' done':''}" data-idx="${a.idx}" data-tab="${a.tab}" data-type="${a.type}" data-name="${a.name}" data-how="${a.how.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">
-${badge(a.type)}<div class="adv-name">${a.name}</div><div class="adv-difficulty">${stars(a.diff)}</div><div class="adv-how">${a.how}</div>${subHtml}<label class="adv-main-cb-wrap"><input type="checkbox" class="adv-main-cb"${isDone?' checked':''} onchange="toggleDone(${a.idx})"><span class="adv-main-cb-label">${isDone?'Completed ✔':'Mark as done'}</span></label>${hasSubs?`<div class="card-footer"><button class="btn-small btn-expand" data-idx="${a.idx}" onclick="toggleExpand(${a.idx})">▼ show steps</button></div>`:''}</div>`;
+      const icon=ADV_ICONS[a.name]||'🎮';
+      const dateStr=dates[a.idx]?'📅 '+formatDate(new Date(dates[a.idx])):'';
+      html+=`<div class="adv-card${isDone?' done':''}" data-idx="${a.idx}" data-tab="${a.tab}" data-type="${a.type}" data-name="${a.name.replace(/"/g,'&quot;')}" data-how="${a.how.replace(/"/g,'&quot;')}">
+<span class="done-tick">✔</span>${badge(a.type)}
+<div class="card-top"><div class="adv-icon">${icon}</div><div class="card-top-text"><div class="adv-name">${a.name}${ADV_VERSION[a.name]?`<span class="version-badge">NEW ${ADV_VERSION[a.name]}</span>`:''}</div><div class="adv-difficulty">${stars(a.diff)}</div></div></div>
+<div class="adv-how">${a.how}</div>${subHtml}
+<label class="adv-main-cb-wrap"><input type="checkbox" class="adv-main-cb"${isDone?' checked':''} onchange="toggleDone(${a.idx})"><span class="adv-main-cb-label">${isDone?'Completed ✔':'Mark as done'}</span></label>
+<div class="done-stamp">${dateStr}</div>
+${hasSubs?`<div class="card-footer"><button class="btn-small btn-expand" data-idx="${a.idx}" onclick="toggleExpand(${a.idx})">▼ show steps</button></div>`:''}</div>`;
     }
     html+='</div></div>';
   }
   document.getElementById('mainContent').innerHTML=html;
   updateProgress();
 }
+
+// ── VERSION SELECTOR ──
+let currentVersion = localStorage.getItem('mc_version') || '1.21.11';
+
+function setVersion(ver) {
+  currentVersion = ver;
+  try { localStorage.setItem('mc_version', ver); } catch(e) {}
+  applyVersionFilter();
+  updateProgress();
+}
+
+function applyVersionFilter() {
+  let visible = 0;
+  document.querySelectorAll('.adv-card').forEach(card => {
+    const name = card.dataset.name;
+    const available = advAvailableIn(name, currentVersion);
+    card.classList.toggle('version-locked', !available);
+    if (available) visible++;
+  });
+  const info = document.getElementById('versionInfo');
+  if (info) info.textContent = visible + ' advancements';
+  // Re-run tab section visibility
+  document.querySelectorAll('.tab-section').forEach(sec => {
+    const vis = [...sec.querySelectorAll('.adv-card')].some(
+      c => !c.classList.contains('hidden') && !c.classList.contains('version-locked')
+    );
+    sec.classList.toggle('hidden', !vis && currentFilter !== 'all');
+  });
+}
+
+// Override updateProgress to exclude locked cards
+const _origUpdateProgress = updateProgress;
+function updateProgress() {
+  const total = ADV.filter(a => advAvailableIn(a.name, currentVersion)).length;
+  const n = [...done].filter(idx => advAvailableIn(ADV[idx].name, currentVersion)).size || 
+    [...done].filter(idx => ADV[idx] && advAvailableIn(ADV[idx].name, currentVersion)).length;
+  const pct = total ? Math.round(n / total * 100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progLabel').textContent = n + ' / ' + total + ' completed (' + pct + '%)';
+}
+
 buildUI();
+// Apply version on load
+setVersion(currentVersion);
+const vsel=document.getElementById('versionSelect');
+if(vsel)vsel.value=currentVersion;
 document.getElementById('searchBox').addEventListener('input',applyFilter);
 
 // ── RANDOM ADVANCEMENT PICKER ──
